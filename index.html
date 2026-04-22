@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-title" content="KPI分析"/>
+<link rel="manifest" href="manifest.json"/>
+<title>KPI分析</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f7f8fc;font-family:'Hiragino Sans',sans-serif}
+#app{max-width:480px;margin:0 auto}
+.hd{background:#fff;padding:16px 16px 0;box-shadow:0 2px 12px rgba(0,0,0,.06);position:sticky;top:0;z-index:10}
+.hd h1{font-size:18px;font-weight:700;margin-bottom:12px}
+.tabs{display:flex}
+.tb{flex:1;padding:10px 0;border:none;background:transparent;color:#888;font-size:14px;border-bottom:3px solid transparent}
+.tb.on{color:#FF6B6B;font-weight:700;border-bottom:3px solid #FF6B6B}
+.ct{padding:16px 12px 80px}
+.dr{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.ar{width:36px;height:36px;border-radius:10px;border:1.5px solid #ddd;background:#fff;font-size:20px}
+input[type=date]{flex:1;padding:8px 12px;border-radius:10px;border:1.5px solid #ddd;font-size:15px;background:#fff}
+.tot{text-align:center;font-size:16px;color:#888;margin-bottom:16px}
+.tot b{font-size:32px;font-weight:800;color:#FF6B6B;margin-left:4px}
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px}
+.card{background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.06);display:flex;flex-direction:column;align-items:center}
+.acc{width:100%;height:4px}
+.card input[type=number]{font-size:28px;font-weight:800;color:#333;width:80%;text-align:center;border:none;outline:none;padding:12px 0 6px;background:transparent;margin-top:8px;-webkit-appearance:none}
+.card span{font-size:11px;color:#777;margin-bottom:12px;text-align:center;padding:0 4px;min-height:30px;display:flex;align-items:center;justify-content:center}
+.acts{display:flex;gap:12px;margin-top:8px}
+.rst{flex:1;padding:14px 0;border-radius:12px;border:1.5px solid #ddd;background:#fff;color:#888;font-size:15px}
+.sav{flex:2;padding:14px 0;border-radius:12px;border:none;background:linear-gradient(135deg,#FF6B6B,#FF8E53);color:#fff;font-size:15px;font-weight:700}
+.sec{font-size:15px;font-weight:700;color:#444;margin:12px 0}
+.avg-row{background:#fff;border-radius:12px;padding:10px 14px;box-shadow:0 1px 6px rgba(0,0,0,.05);display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.avg-row span{flex:1;font-size:13px;color:#555}
+.avg-row b{font-size:18px;font-weight:800}
+.hc{background:#fff;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.hh{display:flex;align-items:center;margin-bottom:10px}
+.hh span{flex:1;font-size:15px;font-weight:700}
+.hh small{font-size:13px;color:#888;margin-right:12px}
+.dl{padding:4px 10px;border-radius:8px;border:1px solid #ffcdd2;background:#fff5f5;color:#FF6B6B;font-size:12px}
+.hg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.hi{display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.hi span{font-size:12px;color:#666;flex:1}
+.hi b{font-size:13px;font-weight:700}
+.empty{text-align:center;color:#aaa;font-size:14px;padding:40px 0}
+</style>
+</head>
+<body>
+<div id="app">
+<div class="hd"><h1>KPI分析</h1>
+<div class="tabs">
+<button class="tb on" onclick="show('input',this)">入力</button>
+<button class="tb" onclick="show('graph',this)">グラフ</button>
+<button class="tb" onclick="show('history',this)">履歴</button>
+</div></div>
+
+<div id="input" class="ct">
+<div class="dr">
+<button class="ar" onclick="moveDay(-1)">‹</button>
+<input type="date" id="dt" onchange="loadDay()"/>
+<button class="ar" onclick="moveDay(1)">›</button>
+</div>
+<div class="tot">合計<b id="tot">0</b></div>
+<div class="grid" id="grid"></div>
+<div class="acts">
+<button class="rst" onclick="resetAll()">リセット</button>
+<button class="sav" id="savBtn" onclick="saveDay()">保存する</button>
+</div></div>
+
+<div id="graph" class="ct" style="display:none">
+<div class="sec">平均一覧</div>
+<div id="avgList"></div>
+</div>
+
+<div id="history" class="ct" style="display:none">
+<div class="sec" id="histTitle">記録履歴</div>
+<div id="histList"></div>
+</div>
+</div>
+<script>
+const ITEMS=[
+{key:"pinpon",label:"ピンポン",color:"#FF6B6B"},
+{key:"outAri",label:"アウトあり",color:"#FF8E53"},
+{key:"taiousu",label:"対応数",color:"#FFC300"},
+{key:"chigau",label:"違うの使ってる",color:"#A8E063"},
+{key:"taimensu",label:"対面数",color:"#56CCF2"},
+{key:"tetsuduki",label:"手続きめんどくさい",color:"#6C63FF"},
+{key:"set",label:"セット",color:"#F72585"},
+{key:"mishiyo",label:"未使用",color:"#4CC9F0"},
+{key:"teiansu",label:"提案数",color:"#7BF1A8"},
+{key:"apo",label:"あぽ",color:"#FFD166"},
+{key:"atokaku",label:"後確数",color:"#EF476F"}
+];
+let records=JSON.parse(localStorage.getItem("kpi")||"[]");
+let today=new Date().toISOString().slice(0,10);
+document.getElementById("dt").value=today;
+
+function buildGrid(){
+  const g=document.getElementById("grid");
+  g.innerHTML="";
+  ITEMS.forEach(it=>{
+    const d=document.createElement("div");
+    d.className="card";
+    d.innerHTML=`<div class="acc" style="background:${it.color}"></div>
+    <input type="number" min="0" id="c_${it.key}" placeholder="0" oninput="updateTotal()" style="border-bottom:3px solid ${it.color}"/>
+    <span>${it.label}</span>`;
+    g.appendChild(d);
+  });
+}
+buildGrid();
+
+function getVal(key){const v=document.getElementById("c_"+key).value;return v===""?0:Math.max(0,parseInt(v)||0);}
+function updateTotal(){
+  let t=0;ITEMS.forEach(it=>t+=getVal(it.key));
+  document.getElementById("tot").textContent=t;
+  document.getElementById("savBtn").textContent="保存する";
+}
+function resetAll(){ITEMS.forEach(it=>{document.getElementById("c_"+it.key).value="";});updateTotal();}
+function loadDay(){
+  today=document.getElementById("dt").value;
+  const r=records.find(r=>r.date===today);
+  ITEMS.forEach(it=>{
+    const v=r?r.counts[it.key]:0;
+    document.getElementById("c_"+it.key).value=v===0?"":v;
+  });
+  updateTotal();
+  document.getElementById("savBtn").textContent=r?"✓ 保存済み":"保存する";
+}
+function saveDay(){
+  const counts={};ITEMS.forEach(it=>counts[it.key]=getVal(it.key));
+  records=records.filter(r=>r.date!==today);
+  records.push({date:today,counts});
+  records.sort((a,b)=>a.date.localeCompare(b.date));
+  localStorage.setItem("kpi",JSON.stringify(records));
+  document.getElementById("savBtn").textContent="✓ 保存済み";
+  renderAvg();renderHist();
+}
+function moveDay(d){
+  const dt=new Date(today);dt.setDate(dt.getDate()+d);
+  today=dt.toISOString().slice(0,10);
+  document.getElementById("dt").value=today;loadDay();
+}
+function renderAvg(){
+  const el=document.getElementById("avgList");
+  if(!records.length){el.innerHTML='<div class="empty">まだ記録がありません</div>';return;}
+  el.innerHTML=ITEMS.map(it=>{
+    const vals=records.map(r=>r.counts[it.key]||0);
+    const avg=(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1);
+    return `<div class="avg-row"><span>${it.label}</span><b style="color:${it.color}">${avg}</b></div>`;
+  }).join("");
+}
+function renderHist(){
+  const el=document.getElementById("histList");
+  document.getElementById("histTitle").textContent=`記録履歴（${records.length}日分）`;
+  if(!records.length){el.innerHTML='<div class="empty">まだ記録がありません</div>';return;}
+  el.innerHTML=[...records].reverse().map(r=>{
+    const tot=Object.values(r.counts).reduce((a,b)=>a+b,0);
+    const items=ITEMS.map(it=>`<div class="hi"><span class="dot" style="background:${it.color}"></span><span>${it.label}</span><b>${r.counts[it.key]||0}</b></div>`).join("");
+    return `<div class="hc"><div class="hh"><span>${r.date}</span><small>合計 ${tot}</small><button class="dl" onclick="delRecord('${r.date}')">削除</button></div><div class="hg">${items}</div></div>`;
+  }).join("");
+}
+function delRecord(date){records=records.filter(r=>r.date!==date);localStorage.setItem("kpi",JSON.stringify(records));renderHist();renderAvg();}
+function show(id,btn){
+  ["input","graph","history"].forEach(v=>document.getElementById(v).style.display="none");
+  document.getElementById(id).style.display="block";
+  document.querySelectorAll(".tb").forEach(b=>b.classList.remove("on"));
+  btn.classList.add("on");
+  if(id==="graph")renderAvg();
+  if(id==="history")renderHist();
+}
+loadDay();
+if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js");
+</script>
+</body>
+</html>
